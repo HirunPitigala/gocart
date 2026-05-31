@@ -4,8 +4,13 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import toast from "react-hot-toast"
 import Loading from "@/components/Loading"
+import { useRouter } from "next/navigation"
+import { db, storage } from "@/lib/firebase"
+import { collection, query, where, getDocs, addDoc } from "firebase/firestore"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
 export default function CreateStore() {
+    const router = useRouter()
 
     const [alreadySubmitted, setAlreadySubmitted] = useState(false)
     const [status, setStatus] = useState("")
@@ -26,23 +31,90 @@ export default function CreateStore() {
         setStoreInfo({ ...storeInfo, [e.target.name]: e.target.value })
     }
 
+    const uploadImage = async (file, pathPrefix) => {
+        if (!file) return "";
+        try {
+            const storageRef = ref(storage, `${pathPrefix}/${Date.now()}_${file.name}`);
+            const snapshot = await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(snapshot.ref);
+            return url;
+        } catch (error) {
+            console.warn("Firebase Storage upload failed, falling back to Base64:", error);
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = () => resolve("");
+                reader.readAsDataURL(file);
+            });
+        }
+    };
+
     const fetchSellerStatus = async () => {
-        // Logic to check if the store is already submitted
-
-
+        try {
+            const q = query(collection(db, "stores"), where("userId", "==", "user_1"));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const storeDoc = querySnapshot.docs[0].data();
+                setAlreadySubmitted(true);
+                setStatus(storeDoc.status);
+                setMessage(storeDoc.status === "approved" 
+                    ? "Your store is approved!" 
+                    : "Your store application is pending approval.");
+            }
+        } catch (error) {
+            console.error("Error fetching seller status:", error);
+        }
         setLoading(false)
     }
 
     const onSubmitHandler = async (e) => {
         e.preventDefault()
-        // Logic to submit the store details
+        if (!storeInfo.name || !storeInfo.username || !storeInfo.email) {
+            toast.error("Please fill in all required fields.");
+            return;
+        }
 
+        try {
+            const logoUrl = await uploadImage(storeInfo.image, "logos");
+            const storeData = {
+                userId: "user_1", // Simulated User ID
+                name: storeInfo.name,
+                description: storeInfo.description,
+                username: storeInfo.username,
+                address: storeInfo.address,
+                email: storeInfo.email,
+                contact: storeInfo.contact,
+                logo: logoUrl,
+                status: "pending",
+                isActive: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
 
+            await addDoc(collection(db, "stores"), storeData);
+            setAlreadySubmitted(true);
+            setStatus("pending");
+            setMessage("Your store application is pending approval.");
+            toast.success("Store details submitted successfully!");
+        } catch (error) {
+            console.error("Store submission failed:", error);
+            toast.error("Failed to submit store details.");
+            throw error;
+        }
     }
 
     useEffect(() => {
         fetchSellerStatus()
     }, [])
+
+    useEffect(() => {
+        if (status === "approved") {
+            const timer = setTimeout(() => {
+                router.push("/store");
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [status, router]);
 
     return !loading ? (
         <>
@@ -52,7 +124,7 @@ export default function CreateStore() {
                         {/* Title */}
                         <div>
                             <h1 className="text-3xl ">Add Your <span className="text-slate-800 font-medium">Store</span></h1>
-                            <p className="max-w-lg">To become a seller on GoCart, submit your store details for review. Your store will be activated after admin verification.</p>
+                            <p className="max-w-lg">To become a seller on UniLink, submit your store details for review. Your store will be activated after admin verification.</p>
                         </div>
 
                         <label className="mt-10 cursor-pointer">

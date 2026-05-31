@@ -3,6 +3,9 @@ import { assets } from "@/assets/assets"
 import Image from "next/image"
 import { useState } from "react"
 import { toast } from "react-hot-toast"
+import { db, storage } from "@/lib/firebase"
+import { collection, addDoc } from "firebase/firestore"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
 export default function StoreAddProduct() {
 
@@ -23,10 +26,70 @@ export default function StoreAddProduct() {
         setProductInfo({ ...productInfo, [e.target.name]: e.target.value })
     }
 
+    const uploadProductImage = async (file) => {
+        if (!file) return "";
+        try {
+            const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
+            const snapshot = await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(snapshot.ref);
+            return url;
+        } catch (error) {
+            console.warn("Firebase Storage upload failed for product image, falling back to Base64:", error);
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = () => resolve("");
+                reader.readAsDataURL(file);
+            });
+        }
+    };
+
     const onSubmitHandler = async (e) => {
         e.preventDefault()
-        // Logic to add a product
-        
+        if (!productInfo.name || !productInfo.category || productInfo.price <= 0) {
+            toast.error("Please provide valid product details.");
+            return;
+        }
+
+        try {
+            setLoading(true)
+            const uploadPromises = Object.keys(images)
+                .filter(key => images[key] !== null)
+                .map(key => uploadProductImage(images[key]));
+            
+            const imageUrls = await Promise.all(uploadPromises);
+
+            const newProduct = {
+                name: productInfo.name,
+                description: productInfo.description,
+                mrp: Number(productInfo.mrp),
+                price: Number(productInfo.price),
+                category: productInfo.category,
+                images: imageUrls.filter(url => url !== ""),
+                inStock: true,
+                storeId: "store_1", // Simulated Store ID
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            await addDoc(collection(db, "products"), newProduct);
+
+            setProductInfo({
+                name: "",
+                description: "",
+                mrp: 0,
+                price: 0,
+                category: "",
+            });
+            setImages({ 1: null, 2: null, 3: null, 4: null });
+            toast.success("Product added successfully!");
+        } catch (error) {
+            console.error("Error adding product:", error);
+            toast.error("Failed to add product.");
+            throw error;
+        } finally {
+            setLoading(false)
+        }
     }
 
 
