@@ -30,7 +30,7 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           # Assuming the project is deployed to /home/<SSH_USER>/gocart on the remote server
           # Adjust if your deployment path is different
-          REMOTE_DIR: /home/${{ secrets.SSH_USER }}/gocart 
+          REMOTE_DIR: /var/www/unilink/repo/Unilink 
         run: |
           echo "Connecting to ${{ env.SSH_USER }}@${{ env.SSH_HOST }}"
           ssh -o StrictHostKeyChecking=no ${{ env.SSH_USER }}@${{ env.SSH_HOST }} << 'EOF'
