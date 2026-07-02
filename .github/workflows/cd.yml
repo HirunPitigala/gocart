@@ -1,0 +1,56 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy Docker image to server
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          # Assuming the project is deployed to /home/<SSH_USER>/gocart on the remote server
+          # Adjust if your deployment path is different
+          REMOTE_DIR: /home/${{ secrets.SSH_USER }}/gocart 
+        run: |
+          echo "Connecting to ${{ env.SSH_USER }}@${{ env.SSH_HOST }}"
+          ssh -o StrictHostKeyChecking=no ${{ env.SSH_USER }}@${{ env.SSH_HOST }} << 'EOF'
+            echo "Navigating to project directory: ${{ env.REMOTE_DIR }}"
+            cd "${{ env.REMOTE_DIR }}" || { echo "ERROR: Directory ${{ env.REMOTE_DIR }} not found on server. Please ensure the project is cloned there."; exit 1; }
+
+            echo "Pulling latest changes..."
+            git pull origin main
+
+            echo "Building Docker image..."
+            docker build -t gocart-app:latest .
+
+            echo "Stopping existing container (if any)..."
+            docker stop gocart-app || true
+
+            echo "Removing old container (if any)..."
+            docker rm gocart-app || true
+
+            echo "Starting new container..."
+            docker run -d --name gocart-app -p 3000:3000 gocart-app:latest
+
+            echo "Deployment complete!"
+          EOF
