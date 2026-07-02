@@ -1,17 +1,8 @@
-version: '3.8'
-
 services:
-  gocart-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: gocart-app
-    ports:
-      - "3000:3000"
+  app:
+    build: .
+    restart: unless-stopped
+    container_name: gocart_app
+    network_mode: host
     env_file:
       - .env
-    restart: unless-stopped # Keep the container running unless explicitly stopped
-    # For production-like local testing, we rely on the Dockerfile's CMD
-    # to start the Next.js server (node server.js).
-    # If you need development mode with hot-reloading, you'd typically need a different setup
-    # involving volumes and potentially a development-specific command.
