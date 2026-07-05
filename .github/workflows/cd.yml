@@ -5,10 +5,13 @@ on:
     branches:
       - prod
 
+concurrency:
+  group: prod
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Configure SSH
         env:
@@ -17,7 +20,7 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/uninlink
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/unilink
           chmod 600 ~/.ssh/unilink
           cat >>~/.ssh/config <<END
           Host target
