@@ -38,5 +38,6 @@ jobs:
             git checkout prod && \
             git pull origin prod && \
             docker-compose down && \
+            docker rm -f gocart-app || true && \
             docker-compose build --no-cache && \
             docker-compose up -d --force-recreate"
