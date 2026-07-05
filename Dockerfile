@@ -46,8 +46,6 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-COPY .env .env
-
 # Copy only necessary files from the builder stage
 # Next.js standalone output copies only the required files for production to .next/standalone
 COPY --from=builder /app/public ./public
